@@ -1,6 +1,6 @@
 {
   "name": "@spynejs/cms",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "CMS runtime plugin for structured JSON authoring inside SpyneJS applications",
   "main": "lib/spyne-cms-plugin.min.js",
   "module": "lib/spyne-cms-plugin.min.js",
@@ -53,7 +53,7 @@
     "mini-css-extract-plugin": "^2.9.4",
     "sass": "^1.93.2",
     "sass-loader": "^16.0.5",
-    "spyne": "^0.22.4",
+    "spyne": "^0.23.0",
     "spyne-plugin-console": "^0.5.5",
     "style-loader": "^4.0.0",
     "tailwindcss": "^3.4.14",

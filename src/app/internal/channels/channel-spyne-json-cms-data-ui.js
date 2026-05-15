@@ -110,7 +110,7 @@ export class ChannelSpyneJsonCmsDataUI extends Channel{
       const isKeyChangedBool = isKey === "true" && value!==undefined ? value !== cmsKey : -1;
       //console.log("VALUE FROM INPUT IS ",{value,cmsKey, isKey,isKeyChangedBool, target, event, payload});
       const action = "CHANNEL_SPYNE_JSON_CMS_DATA_UI_INPUT_CHANGED_EVENT";
-      const textVal = String(value).replace("\n", "<br /> \n \r\n");
+      const textVal =  value;//String(value).replace("\n", "<br /> \n \r\n");
       this.sendChannelPayload(action, {cmsKey, isKey,isKeyChangedBool, cmsId, textVal})
 
     }
