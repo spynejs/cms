@@ -36,15 +36,15 @@ export class SpyneCmsPanelDataPropertyTraits extends SpyneTrait {
     let inputType = 'input';
     let rowsNum = 0;
     const shortTxtRE = /^((\d)+|true|false|(http(s)?.*)|\/\/.*|([a-zA-Z\w\s\S\W\\/]{0,34}))$/m;
-    const hasLineBreak = /[\r\n\u2028\u2029]/m;
+    const hasLineBreak = /[\r\n\u2028\u2029]|<br\s*\/?>/m;
 
     const type = UtilTraits.util$GetType(cmsVal);
     if (type!=='primitive'){
       return {inputType, rowsNum};
     }
 
-    const isInputTxt = shortTxtRE.test(cmsVal) && !hasLineBreak.test(cmsVal);
-    inputType = isInputTxt ? inputType : 'textarea';
+    const isInputTxt = shortTxtRE.test(cmsVal);
+    inputType = !isInputTxt || hasLineBreak.test(cmsVal) ? 'textarea' : inputType;
     rowsNum = isInputTxt ? rowsNum : Math.ceil(String(cmsVal).length / 33);
 
     return {inputType, rowsNum }
