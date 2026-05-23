@@ -1,6 +1,7 @@
 spyne-cms-item{
   position: relative;
-  display: inline-block;;
+  display: inline-block;
+  display: inline-grid;
  // position: relative;
   //display: inline-flex;;
 
@@ -47,7 +48,8 @@ spyne-cms-item{
       height: calc(100% + 0px);
 
       pointer-events: none;
-      display: inline-block;;
+      display: inline-block;
+      display: inline-grid;
       visibility:hidden;
 
 

@@ -1,5 +1,5 @@
 @charset "UTF-8";
-/* 
+/*
 
 An Old Hope – Star Wars Syntax (c) Gustavo Costa <gusbemacbe@gmail.com>
 Original theme - Ocean Dark Theme – by https://github.com/gavsiu
@@ -2108,6 +2108,7 @@ Based on Jesse Leite's Atom syntax theme 'An Old Hope' – https://github.com/Je
 spyne-cms-item {
   position: relative;
   display: inline-block;
+  display: inline-grid;
   /*
   svg{
     position: absolute;;
@@ -2145,6 +2146,7 @@ spyne-cms-item spyne-cms-item-hitbox svg {
   height: calc(100% + 0px);
   pointer-events: none;
   display: inline-block;
+  display: inline-grid;
   visibility: hidden;
 }
 spyne-cms-item spyne-cms-item-hitbox svg rect {

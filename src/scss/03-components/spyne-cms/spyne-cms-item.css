@@ -1,6 +1,7 @@
 spyne-cms-item {
   position: relative;
   display: inline-block;
+  display: inline-grid;
   /*
   svg{
     position: absolute;;
@@ -38,6 +39,7 @@ spyne-cms-item spyne-cms-item-hitbox svg {
   height: calc(100% + 0px);
   pointer-events: none;
   display: inline-block;
+  display: inline-grid;
   visibility: hidden;
 }
 spyne-cms-item spyne-cms-item-hitbox svg rect {
