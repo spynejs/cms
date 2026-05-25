@@ -4,6 +4,7 @@ import {SpynePluginCmsUITraits} from '../traits/spyne-plugin-json-cms-ui-traits'
 import {CmsItemSelectBox} from './spyne-cms/cms-item-select-box';
 import {CmsItemTextUpdater} from './spyne-cms/cms-item-text-updater';
 import { AuthLocalTraits } from "../traits/auth-local-traits";
+import { SpyneAppProperties } from 'spyne';
 
 export class MainPluginView extends ViewStream {
 
@@ -82,6 +83,14 @@ export class MainPluginView extends ViewStream {
   }
 
   onRendered() {
+
+    const {isCodemapBuild} = SpyneAppProperties;
+    console.log('codemap build ', {isCodemapBuild})
+
+    if (isCodemapBuild){
+      return;
+    }
+
     this.appendView(new CmsItemSelectBox());
     new CmsItemTextUpdater().appendToNull();
     const {config, pluginName} = this.props;
