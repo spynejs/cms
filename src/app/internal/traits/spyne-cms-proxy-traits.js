@@ -22,6 +22,10 @@ const sanitizeValue = (val) => {
 
 const _proxyName = "spyneCmsProxyData";
 
+// rootProxyId -> {idMap, rootProxy}; lets static DOM-serializers resolve
+// unmaterialized (lazy) panel sections from the original proxy data
+const _rootProxyRegistry = new Map();
+
 export class SpyneCmsProxyTraits extends SpyneTrait {
 
   constructor() {
@@ -33,6 +37,63 @@ export class SpyneCmsProxyTraits extends SpyneTrait {
   }
 
 
+
+  static spyneCms$RegisterRootProxy(rootProxyId, idMap, rootProxy, rawData){
+    _rootProxyRegistry.set(rootProxyId, {idMap, rootProxy, rawData});
+  }
+
+  static spyneCms$GetRootRegistryByCmsId(cmsId){
+    const rootProxyId = String(cmsId).replace(/^(cms-\w+-).*$/, '$1');
+    return _rootProxyRegistry.get(rootProxyId);
+  }
+
+  /**
+   * Resolves the plain-JSON value for a cmsId from the registered root proxy.
+   * Used by the hybrid serializer for lazy panel sections that were never
+   * materialized into the DOM (they cannot have been edited, so the proxy
+   * data is authoritative for them).
+   */
+  static spyneCms$ResolveValueByCmsId(cmsId){
+    const registry = SpyneCmsProxyTraits.spyneCms$GetRootRegistryByCmsId(cmsId);
+    const pathArr = registry?.idMap?.get(cmsId);
+    if (pathArr === undefined){
+      console.warn(`SPYNE CMS WARNING: unable to resolve data for unmaterialized cmsId, ${cmsId}`);
+      return undefined;
+    }
+    // prefer the pristine pre-sanitization copy so untouched sections publish
+    // byte-identical to the source file; fall back to the proxy data
+    const sourceObj = registry.rawData !== undefined ? registry.rawData : registry.rootProxy;
+    const val = path(pathArr, sourceObj);
+    if (val === undefined){
+      return undefined;
+    }
+    // JSON round-trip strips proxy wrappers when falling back to the proxy
+    // (cms metadata props are handler-provided, not own-enumerable) and
+    // detaches the returned value from the registry copy
+    const detached = JSON.parse(JSON.stringify(val));
+    // rendered sections pass through input/textarea parsing, which decodes
+    // HTML entities that sanitization encoded (e.g. &nbsp;); decode here so
+    // materialized and unmaterialized sections publish identically
+    return SpyneCmsProxyTraits.spyneCms$DecodeHtmlEntitiesDeep(detached);
+  }
+
+  static spyneCms$DecodeHtmlEntitiesDeep(val){
+    if (typeof val === 'string'){
+      if (val.includes('&') === false){
+        return val;
+      }
+      // textarea content parses as raw text: tags stay literal, entities decode
+      const ta = document.createElement('textarea');
+      ta.innerHTML = val;
+      return ta.value;
+    }
+    if (val !== null && typeof val === 'object'){
+      for (const k of Object.keys(val)){
+        val[k] = SpyneCmsProxyTraits.spyneCms$DecodeHtmlEntitiesDeep(val[k]);
+      }
+    }
+    return val;
+  }
 
   static spyneCms$GetNestedLevelByMap(idMap){
     const reduceToMaxNestedNum = (acc, arr) => {
@@ -206,8 +267,9 @@ export class SpyneCmsProxyTraits extends SpyneTrait {
 
   static spyneCms$CreateCmsProxyObjOrArr(obj, cmsHash={}){
 
-    obj = SpyneCmsProxyTraits.spyneCms$SanitizeObj(obj);
-
+    // Sanitization happens once in spyneCms$ProxifyJsonData; this method is also
+    // the registered proxy reviver and must stay a pure re-wrapper — sanitizing
+    // here re-runs DOMPurify per ancestor container and on every payload revive.
 
     const cmsRE = /^(__cms__)/;
     const proxyRE = /^(__proxy__)/;
@@ -371,7 +433,14 @@ export class SpyneCmsProxyTraits extends SpyneTrait {
     origObj,
     rootData = { rootProxyId: SpyneCmsProxyTraits.spyneCms$GenerateRootProxyId() }
   ) {
-    const jsonObj = clone(origObj);
+    // keep a pristine copy for the hybrid serializer: unmaterialized lazy
+    // sections publish byte-identical to the source file (only the first —
+    // root — call per rootData wins; later fragment proxifications skip)
+    if (rootData.rawData === undefined) {
+      rootData.rawData = clone(origObj);
+    }
+
+    const jsonObj = SpyneCmsProxyTraits.spyneCms$SanitizeObj(clone(origObj));
     const cmsPrefix = rootData.rootProxyId;
 
 

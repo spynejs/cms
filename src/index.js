@@ -100,9 +100,9 @@ SpyneApp.init(config);
 // ─────────────────────────────────────────────────────────────
 if (process.env.NODE_ENV === "development") {
   SpyneApp.registerPlugin(new SpyneCmsPlugin(cmsPluginConfig));
-/*  SpyneApp.registerPlugin(
+  SpyneApp.registerPlugin(
     new SpynePluginConsole({ position: ["bottom", "left"], minimize: true }),
-  );*/
+  );
 }
 
 // ─────────────────────────────────────────────────────────────

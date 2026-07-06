@@ -43,7 +43,7 @@ export class SpyneCmsItemView extends ViewStream {
     sendInfoToCmsChannel(payload, actionType="ADDED"){
         const action = `CHANNEL_SPYNE_JSON_CMS_DATA_ITEM_${actionType}`;
         const channelName = "CHANNEL_SPYNE_JSON_CMS_DATA"
-
+        console.log("action is ",action);
 
        this.sendInfoToChannel(channelName, this.props.data, action);
 

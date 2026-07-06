@@ -22,6 +22,12 @@ export class ChannelSpyneJsonCmsData extends Channel{
     this.getChannel("CHANNEL_SPYNE_JSON_CMS_DATA_UI", cmsDataPanelUIFilter)
         .subscribe(this.onBeginPublishDataEvent.bind(this));
 
+    /** TODO: create custom rxjs that does
+     * 1. listens to CHANNEL_ROUTE via getChannel with a timer and collects all customEvents using fromEvents from
+     * SpyneCmsItem.connectedCallback src/app/internal/components/spyne-cms/cms-custom-elements/spyne-cms-item.js:115
+     * and then runs onCMSDataItemsRendered
+     */
+
 
   }
 
@@ -158,6 +164,12 @@ export class ChannelSpyneJsonCmsData extends Channel{
     //console.log("the spyne cms item payload REMOVED is ",payload);
 
   }
+  onCMSDataItemsRendered(e){
+    // returns payload of all recent cms items just loaded
+    const action = "CHANNEL_SPYNE_JSON_CMS_DATA_ITEMS_ACTIVATED_EVENT";
+    //this.sendChannelPayload(action, payload)
+  }
+
   addRegisteredActions() {
 
     return [

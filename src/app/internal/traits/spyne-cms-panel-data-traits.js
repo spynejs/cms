@@ -1,5 +1,6 @@
 import {SpyneTrait} from 'spyne';
 import {DataStateMachine} from './utils/data-state-machine';
+import {SpyneCmsProxyTraits} from './spyne-cms-proxy-traits';
 import {is, all,__, map, uniq, reject, compose} from 'ramda';
 
 export class SpyneCmsPanelDataTraits extends SpyneTrait {
@@ -126,6 +127,10 @@ export class SpyneCmsPanelDataTraits extends SpyneTrait {
       } else {
         if (overrideVal){
           acc[key] = JSON.parse(overrideVal);
+        } else if (propContainerEl.dataset.materialized === 'false'){
+          // HYBRID SERIALIZER: lazy sections never materialized into the DOM
+          // cannot have been edited — resolve them from the proxy data
+          acc[key] = SpyneCmsProxyTraits.spyneCms$ResolveValueByCmsId(propContainerEl.dataset.cmsId);
         } else {
           const nestedAcc = cmsType === 'array' ? [] : {};
           const propsNodeList = propContainerEl.querySelectorAll(

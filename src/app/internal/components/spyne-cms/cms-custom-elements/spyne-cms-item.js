@@ -112,6 +112,25 @@ export class SpyneCmsItem extends HTMLElement{
   }
 
 
+  connectedCallback(e){
+    const {dataset} = this;
+    const {cmsId, origKey, cmsKey} = dataset;
+    const text = this.innerText;
+    const data = {cmsId, origKey, cmsKey, text};
+
+    // custom elements cannot sendInfoToChannel; SpyneCmsItemsRelay (a null-appended
+    // ViewStream) listens for this window event and relays it to
+    // CHANNEL_SPYNE_JSON_CMS_DATA as an ITEM_ADDED action
+    window.dispatchEvent(new CustomEvent(SpyneCmsItem.connectedEventName, {detail: data}));
+
+  }
+
+  static get connectedEventName(){
+    return 'spyne-cms-item-connected';
+  }
+
+
+
   connectedCallback1(e){
     const {dataset} = this;
     const {cmsId, origKey, cmsKey} = dataset;

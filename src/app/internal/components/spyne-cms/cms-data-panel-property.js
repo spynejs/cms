@@ -1,4 +1,4 @@
-import {ViewStream, ChannelPayloadFilter, safeClone} from 'spyne';
+import {ViewStream, ChannelPayloadFilter, DomElementTemplate, safeClone} from 'spyne';
 import {UtilTraits} from '../../traits/util-traits';
 import {SpyneCmsPanelDataPropertyTraits} from '../../traits/spyne-cms-panel-data-property-traits';
 import {SpyneCmsPanelDataObjectTraits} from '../../traits/spyne-cms-panel-data-object-traits';
@@ -13,10 +13,14 @@ export class CmsDataPanelProperty extends ViewStream {
 
     constructor(props={}) {
       //console.log("PANEL PROP PROPS ",safeClone(props),safeClone(props.cmsVal, "spyneCmsProxyData"));
-      props = CmsDataPanelProperty.conformPanelPropData(props);
 
-      //console.log("IS CONTAINER");
-      //props.tagName = isContainer ? "dl" : "dd";
+      // HYDRATION MODE: props.el is an existing inert dd element (see
+      // renderInertPropsFrag); the ViewStream adopts it and skips rendering.
+      const isHydration = props.el !== undefined;
+
+      props = isHydration === true ?
+          CmsDataPanelProperty.conformHydrationProps(props) :
+          CmsDataPanelProperty.conformPanelPropData(props);
 
       const isContainer = props.isContainer===true;
       props.traits = isContainer ?
@@ -29,11 +33,9 @@ export class CmsDataPanelProperty extends ViewStream {
       props.stateMachine = SpyneCmsPanelDataPropertyTraits.spyneCmsPanelDataProp$CreateStateMatchine(props);
       // console.log("props data is ",{isContainer},props.cmsKey,props.data);
 
-      if (isContainer===true){
-        //console.log("container data ",props.data);
+      if (isHydration === false){
+        props.template = isContainer ? TemplatePropertyContainer : TemplateProperty;
       }
-
-      props.template = isContainer ? TemplatePropertyContainer : TemplateProperty;
 
       super(props);
     }
@@ -70,24 +72,146 @@ export class CmsDataPanelProperty extends ViewStream {
 
     }
 
-    static renderPanelPropertyHTMLString(proxyObj){
-      const {__cms__dataId} = proxyObj.cmsVal;
-      const parentDataId = __cms__dataId;
+    /**
+     * INERT RENDER: builds one dd element identical to what the ViewStream
+     * path produces (same id, class, data-* attributes, and template data),
+     * but without a ViewStream instance — no channel subscriptions, no state
+     * machine, no broadcast listeners. Marked data-hydrated="false" so the
+     * root CmsDataPanel can hydrate it on first interaction.
+     */
+    static buildInertPropEl({cmsKey, cmsVal, parentDataId}){
+      const isContainer = cmsVal.__cms__isProxy;
+      const id = UtilTraits.util$CreateId();
+      const data = SpyneCmsPanelDataPropertyTraits.spyneCmsPanelDataProp$ConformPropData({cmsKey, cmsVal, parentDataId});
+      data.vsid = id;
+      data.valueType = typeof data.cmsVal;
 
-      //console.log("parent data id is ",{parentDataId}, props.cmsVal);
+      const dd = document.createElement('dd');
+      dd.id = id;
+      dd.className = `cms-panel-property id-${data.dataCmsId} key-${data.cmsKey}`;
+      dd.dataset['isContainer'] = isContainer;
+      dd.dataset['cmsId'] = data.dataCmsId;
+      dd.dataset['parentCmsId'] = data.parentDataId;
+      dd.dataset['cmsKey'] = data.dataCmsKey;
+      dd.dataset['cmsType'] = data.dataType;
+      dd.dataset['valueType'] = data.valueType;
+      dd.dataset['hydrated'] = false;
 
-      for (let [cmsKey, cmsVal] of Object.entries(proxyObj.cmsVal)) {
+      const template = isContainer === true ? TemplatePropertyContainer : TemplateProperty;
+      const frag = new DomElementTemplate(template, data).renderDocFrag();
+      if (typeof frag === 'string'){
+        dd.innerHTML = frag;
+      } else {
+        dd.appendChild(frag);
+      }
+
+      return {dd, isContainer};
+    }
+
+    /**
+     * Recursively renders all entries of a proxified container as inert dd
+     * elements, returned as a detached DocumentFragment (single reflow on
+     * final append).
+     */
+    static renderInertPropsFrag(containerVal, parentDataId){
+      const frag = document.createDocumentFragment();
+
+      for (let [cmsKey, cmsVal] of Object.entries(containerVal)) {
         if (cmsVal === null){
           cmsVal = "null";
         }
 
-        const isContainer = cmsVal.__cms__isProxy;
-        //new CmsDataPanelProperty({isContainer,cmsKey,cmsVal,parentDataId}), '.spyne-cms-property-container');
+        const {dd, isContainer} = CmsDataPanelProperty.buildInertPropEl({cmsKey, cmsVal, parentDataId});
 
+        if (isContainer === true){
+          const childFrag = CmsDataPanelProperty.renderInertPropsFrag(cmsVal, cmsVal.__cms__dataId);
+          dd.querySelector('.spyne-cms-property-container').appendChild(childFrag);
+        }
 
+        frag.appendChild(dd);
       }
 
+      return frag;
+    }
 
+    /**
+     * LAZY RENDER: like renderInertPropsFrag but container children are NOT
+     * rendered — containers become empty shells marked data-materialized="false".
+     * Shells are materialized on demand (page cms-item activation or panel
+     * interaction); the hybrid serializer resolves unmaterialized shells from
+     * the proxy data at publish time.
+     */
+    static renderLazyPropsFrag(containerVal, parentDataId){
+      const frag = document.createDocumentFragment();
+
+      for (let [cmsKey, cmsVal] of Object.entries(containerVal)) {
+        if (cmsVal === null){
+          cmsVal = "null";
+        }
+
+        const {dd, isContainer} = CmsDataPanelProperty.buildInertPropEl({cmsKey, cmsVal, parentDataId});
+
+        if (isContainer === true){
+          dd.dataset['materialized'] = false;
+        }
+
+        frag.appendChild(dd);
+      }
+
+      return frag;
+    }
+
+    /**
+     * Fills a lazy shell with its direct children (grandchild containers stay
+     * lazy shells) and flips data-materialized to true.
+     */
+    static materializeContainerEl(dd, containerVal){
+      if (dd.dataset.materialized !== 'false'){
+        return;
+      }
+      const frag = CmsDataPanelProperty.renderLazyPropsFrag(containerVal, dd.dataset.cmsId);
+      dd.querySelector('.spyne-cms-property-container').appendChild(frag);
+      dd.dataset['materialized'] = true;
+    }
+
+    /**
+     * Rebuilds ViewStream props from an inert dd element's attributes and
+     * inputs. For containers the caller resolves cmsVal from the proxy data
+     * via rootData.idMap and passes it as props.cmsVal.
+     */
+    static conformHydrationProps(props={}){
+      const {el} = props;
+      const ds = el.dataset;
+      const isContainer = ds.isContainer === 'true';
+      const id = el.id;
+
+      const keySelector = SpyneCmsPanelDataObjectTraits.spyneCmsPanelDataObj$GetKeySelector(isContainer);
+      const cmsKey = el.querySelector(keySelector)?.value;
+
+      let cmsVal = props.cmsVal;
+      if (isContainer === false){
+        const valEl = el.querySelector('.cms-panel-input.type-property');
+        cmsVal = SpyneCmsPanelDataPropertyTraits.spyneCmsPanelDataProp$ConvertType(valEl?.value, ds.valueType);
+      }
+
+      props.isContainer = isContainer;
+      props.isHydration = true;
+      props.id = id;
+      props.vsid = id;
+      props.cmsKey = cmsKey;
+      props.cmsVal = cmsVal;
+      props.data = {
+        cmsKey,
+        cmsVal,
+        dataType: ds.cmsType,
+        dataCmsId: ds.cmsId,
+        dataCmsKey: ds.cmsKey === 'false' ? false : ds.cmsKey,
+        parentDataId: ds.parentCmsId,
+        valueType: ds.valueType,
+        vsid: id
+      };
+
+      return props;
     }
 
     addActionListeners() {
@@ -348,29 +472,17 @@ export class CmsDataPanelProperty extends ViewStream {
 
     onRendered() {
 
-      const {isContainer} = this.props;
+      const {isContainer, isHydration} = this.props;
       //this.appendView(new CmsDataPanelPropertyControls({isContainer,data:this.props.data}), ".controls-container");
 
       this.addChannel("CHANNEL_DATA_PANELS")
 
 
-      const getRect = ()=>{
-
-        const rect = this.props.el.getBoundingClientRect();
-        const {x,y} = rect;
-        this.props.origX = x;
-        this.props.origY = y;
-      }
-
-      //window.setTimeout(getRect, 2000);
-
       if(isContainer === true){
-        const updater = async()=>{
-          await this.spyneCmsPanelDataObj$AddProps();
-
+        // hydrated containers already have their children in the DOM (inert)
+        if (isHydration !== true){
+          this.spyneCmsPanelDataObj$AddProps();
         }
-
-        updater();
         this.addChannel("CHANNEL_SPYNE_JSON_CMS_DATA_UI");
 
 
@@ -378,13 +490,11 @@ export class CmsDataPanelProperty extends ViewStream {
         this.addChannel("CHANNEL_SPYNE_JSON_CMS_DATA_UI");
         this.addChannel("CHANNEL_CMS_ITEMS");
 
-        //console.log("TYPE IS ",this.props.data, this.props);
-
-
-
       }
 
-
+      if (isHydration === true){
+        this.props.el.dataset['hydrated'] = true;
+      }
 
     }
 

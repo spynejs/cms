@@ -1,7 +1,8 @@
 import {ViewStream, ChannelPayloadFilter} from 'spyne';
 import {SpyneCmsPanelTraits} from '../../traits/spyne-cms-panel-traits';
-import {compose, head, defaultTo, values} from 'ramda';
+import {compose, head, defaultTo, values, path} from 'ramda';
 import {CmsDataPanelNestedLevelsTags} from './cms-data-panel-nested-levels-tags';
+import {CmsDataPanelProperty} from './cms-data-panel-property';
 import {SpyneCmsPanelDataObjectTraits} from '../../traits/spyne-cms-panel-data-object-traits';
 import {SpyneCmsPanelDataTraits} from "../../traits/spyne-cms-panel-data-traits";
 import {SpyneCmsPanelDomUpdaterTraits} from '../../traits/spyne-cms-panel-dom-updater-traits';
@@ -12,6 +13,18 @@ import {forEachObjIndexed} from 'ramda';
 //import {expect} from 'chai';
 import {UtilTraits} from '../../traits/util-traits';
 //chai.config.showDiff = true;
+
+// above this node count the panel renders lazily: only sections activated by
+// page cms-items or panel interaction are materialized (see hybrid serializer
+// in SpyneCmsPanelDataTraits for how unmaterialized sections publish)
+const LAZY_PANEL_NODE_THRESHOLD = 1000;
+
+const countDataNodes = (val)=>{
+  if (val === null || typeof val !== 'object'){
+    return 1;
+  }
+  return 1 + Object.values(val).reduce((acc, v)=>acc + countDataNodes(v), 0);
+};
 
 export class CmsDataPanel extends ViewStream {
 
@@ -58,6 +71,12 @@ export class CmsDataPanel extends ViewStream {
          const {idMap} = props.rootData;
          const nestedLevel = SpyneCmsProxyTraits.spyneCms$GetNestedLevelByMap(idMap);
 
+         // lets the static hybrid serializer resolve unmaterialized lazy
+         // sections from the proxy data (see spyneCms$ResolveValueByCmsId)
+         SpyneCmsProxyTraits.spyneCms$RegisterRootProxy(rootId, idMap, cmsVal, props.rootData.rawData);
+
+         props.isLazyPanel = countDataNodes(cmsVal) > LAZY_PANEL_NODE_THRESHOLD;
+
          //console.log({nestedLevel,idMap}," ROOT DATA IS ",props.data,' --- ',props.rootData);
 
 
@@ -89,7 +108,7 @@ export class CmsDataPanel extends ViewStream {
       })*/
         // return nexted array(s)
         return [
-         ["CHANNEL_CMS_ITEMS_FOCUS_EVENT", "spyneCmsPanel$OnFocusElementEvent", onDataPanelEventFilterByRootId],
+         ["CHANNEL_CMS_ITEMS_FOCUS_EVENT", "onFocusElementEvent", onDataPanelEventFilterByRootId],
           ["CHANNEL_DATA_PANELS_(APPEND|MOVE)_PROPERTY", "onAppendPropertyEvent", onDataPanelEventFilter],
           ["CHANNEL_DATA_PANELS_CREATE_PROPERTY_TYPE_EVENT", "onCreatePropertyEvent", onDataPanelEventFilter],
          ['CHANNEL_DATA_PANELS_MOVE_COMPLETED_EVENT', 'onMoveCompletedEvent', onDataPanelEventFilter],
@@ -415,6 +434,125 @@ INSTRUCTIONS:
       //console.log("CMS FOCUS",{rootId, cmsId}, this.props.rootData.rootProxyId);
     }
 
+    /**
+     * HYDRATION: inert rows (data-hydrated="false") become live
+     * CmsDataPanelProperty ViewStreams on first interaction. Hydrating the
+     * full ancestor chain keeps the invariant that a hydrated row's parent
+     * containers are also hydrated (delete/move/array-reindex events are
+     * addressed to parent containers).
+     */
+    addHydrationListeners(){
+      const onInteraction = (e)=>{
+        // lazy shells materialize their children before anything else —
+        // this also guarantees drag-into-shell targets are populated,
+        // because mouseover always precedes a drop
+        const shellDd = e.target.closest('dd[data-materialized="false"]');
+        if (shellDd !== null){
+          this.materializeDd(shellDd);
+        }
+
+        const dd = e.target.closest('dd[data-hydrated="false"]');
+        if (dd === null){
+          return;
+        }
+        this.hydrateDdChain(dd);
+      };
+
+      this.props.el.addEventListener('mouseover', onInteraction);
+      this.props.el.addEventListener('focusin', onInteraction);
+    }
+
+    /**
+     * LAZY MODE: fills a shell container with its direct children
+     * (grandchildren remain shells).
+     */
+    materializeDd(dd){
+      if (dd.dataset.materialized !== 'false'){
+        return;
+      }
+      const pathArr = this.props.rootData.idMap.get(dd.dataset.cmsId);
+      const cmsVal = pathArr !== undefined ? path(pathArr, this.props.data.cmsVal) : undefined;
+      if (cmsVal === undefined){
+        console.warn(`SPYNE CMS WARNING: unable to materialize panel section, ${dd.dataset.cmsId}`);
+        return;
+      }
+      CmsDataPanelProperty.materializeContainerEl(dd, cmsVal);
+    }
+
+    /**
+     * LAZY MODE: materializes every ancestor container down to the target
+     * cmsId (and the target's own children), so focus/edit flows can find
+     * their rows in the DOM. Returns the target container dd or null.
+     */
+    materializePathToCmsId(cmsId){
+      const {idMap} = this.props.rootData;
+      const pathArr = idMap.get(cmsId);
+      if (pathArr === undefined){
+        return null;
+      }
+      const rootProxy = this.props.data.cmsVal;
+
+      for (let i = 1; i <= pathArr.length; i++){
+        const ancestorProxy = path(pathArr.slice(0, i), rootProxy);
+        const ancestorId = ancestorProxy?.__cms__dataId;
+        if (ancestorId === undefined){
+          continue;
+        }
+        const dd = this.props.el.querySelector(`dd[data-cms-id="${ancestorId}"][data-cms-key="false"]`);
+        if (dd !== null){
+          this.materializeDd(dd);
+        }
+      }
+
+      return this.props.el.querySelector(`dd[data-cms-id="${cmsId}"][data-cms-key="false"]`);
+    }
+
+    hydrateDdChain(dd){
+      const chain = [];
+      let el = dd;
+
+      while (el !== null && el !== this.props.el){
+        if (el.tagName === 'DD' && el.dataset.hydrated === 'false'){
+          chain.unshift(el);
+        }
+        el = el.parentElement;
+      }
+
+      const hydrate = (ddEl)=>{
+        const propProps = {el: ddEl};
+
+        if (ddEl.dataset.isContainer === 'true'){
+          const pathArr = this.props.rootData.idMap.get(ddEl.dataset.cmsId);
+          propProps.cmsVal = pathArr !== undefined ? path(pathArr, this.props.data.cmsVal) : {};
+        }
+
+        new CmsDataPanelProperty(propProps);
+      };
+
+      chain.forEach(hydrate);
+    }
+
+    onFocusElementEvent(e){
+      const {cmsId, cmsKey} = e.payload;
+
+      // lazy panels may not have the target section in the DOM yet
+      if (this.props.isLazyPanel === true){
+        this.materializePathToCmsId(cmsId);
+      }
+
+      // primitive rows carry their parent's cmsId plus their own cmsKey
+      const focusDd = this.props.el.querySelector(`dd[data-cms-id="${cmsId}"][data-cms-key="${cmsKey}"]`);
+
+      if (focusDd !== null && focusDd.dataset.hydrated === 'false'){
+        // the instance created mid-dispatch misses this in-flight event,
+        // so hydrate and focus the input directly
+        this.hydrateDdChain(focusDd);
+        focusDd.querySelector('.cms-panel-input.type-property')?.focus();
+      }
+
+      this.spyneCmsPanel$OnFocusElementEvent(e);
+    }
+
   onCreatePropertyEvent(e){
       const {payload} = e;
       //console.log("CREATE PROP EVENT ",payload);
@@ -504,8 +642,18 @@ INSTRUCTIONS:
     }
 
     onDataItemsActivated(e){
+      // LAZY MODE: cms-items now present in the page DOM drive which panel
+      // sections get materialized (payload is the bufferTime batch of
+      // SpyneCmsItem connectedCallback events, relayed by SpyneCmsItemsRelay)
+      if (this.props.isLazyPanel !== true){
+        return;
+      }
 
-        //console.log('data items activated ',e);
+      const {rootProxyId} = this.props.rootData;
+      const items = Array.isArray(e.payload) ? e.payload : [];
+
+      const isThisPanel = (item)=>String(item?.cmsId ?? '').startsWith(rootProxyId);
+      items.filter(isThisPanel).forEach((item)=>this.materializePathToCmsId(item.cmsId));
     }
 
     broadcastEvents() {
@@ -547,7 +695,15 @@ INSTRUCTIONS:
 
       }));
 
-      this.spyneCmsPanelDataObj$AddProps();
+      if (this.props.isLazyPanel === true){
+        // top-level rows only; containers are empty shells materialized on demand
+        const cmsVal = this.props.data.cmsVal;
+        const frag = CmsDataPanelProperty.renderLazyPropsFrag(cmsVal, cmsVal.__cms__dataId);
+        this.props.el.querySelector('.spyne-cms-property-container').appendChild(frag);
+      } else {
+        this.spyneCmsPanelDataObj$AddProps();
+      }
+      this.addHydrationListeners();
 
       /**
        * =========================================

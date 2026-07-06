@@ -202,26 +202,13 @@ export class SpyneCmsPanelDataObjectTraits extends SpyneTrait {
   }
 
   static spyneCmsPanelDataObj$AddProps(props = this.props){
-    // CONFORM ARRAY FROM KEYS VALS
+    // INERT RENDER: children are built as plain DOM (no ViewStream per node)
+    // and hydrated on first interaction by the root CmsDataPanel.
     const {__cms__dataId} = props.cmsVal;
     const parentDataId = __cms__dataId;
 
-    //console.log("parent data id is ",{parentDataId}, props.cmsVal);
-
-    for (let [cmsKey, cmsVal] of Object.entries(props.cmsVal)) {
-      //console.log("CMSKEY ",{cmsKey, cmsVal, parentDataId}, props);
-
-      if (cmsVal === null){
-        cmsVal = "null";
-      }
-
-      const isContainer = cmsVal.__cms__isProxy;
-      const onFrame = ()=>this.appendView(new CmsDataPanelProperty({isContainer,cmsKey,cmsVal,parentDataId}), '.spyne-cms-property-container');
-
-      onFrame();
-     // requestAnimationFrame(onFrame)
-      //console.log(`KEY VAL ${cmsKey}: ${cmsVal}`);
-    }
+    const frag = CmsDataPanelProperty.renderInertPropsFrag(props.cmsVal, parentDataId);
+    this.props.el.querySelector('.spyne-cms-property-container').appendChild(frag);
 
   }
 
