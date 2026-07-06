@@ -160,6 +160,12 @@ export default (env = {}, argv = {}) => {
   // -------------------------------------------------------------------
   const resolve = {
     alias: {
+      // Pin dev builds to the local spyne so every importer shares ONE
+      // SpyneApp instance — npm install silently replaces the
+      // node_modules/spyne link with the registry copy, which otherwise
+      // bundles a second (uninitialized) SpyneApp. Production builds are
+      // unaffected: spyne is externalized there by request string.
+      spyne$: path.resolve(__dirname, "../spyne-private"),
       plugins: path.resolve(__dirname, "src/plugins/"),
       imgs: path.resolve(__dirname, "src/static/imgs/"),
       fonts: path.resolve(__dirname, "src/static/fonts/"),
