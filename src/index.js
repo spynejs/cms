@@ -41,6 +41,7 @@ window.R = R;
 // ─────────────────────────────────────────────────────────────
 const config = {
   appGenMode: false,
+  mode: 'app',
   strict: false,
   debug: true,
 
