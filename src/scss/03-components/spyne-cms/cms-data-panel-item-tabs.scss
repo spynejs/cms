@@ -53,6 +53,33 @@
         }
       }
 
+      // lazy-load spinner: right-center of the tab while cms-item batches
+      // are pending/materializing (element created by
+      // CmsDataPanel.getLoadingSpinnerEl)
+      .cms-data-panel-loading-spinner{
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+
+        span{
+          position: absolute;
+          top: 50%;
+          right: 12px;
+          width: 13px;
+          height: 13px;
+          margin-top: -8px;
+          border: 2px solid rgba(127, 127, 127, .25);
+          border-top-color: palette-mixins.$ldNeutral-800;
+          border-radius: 50%;
+          opacity: 0;
+          transition: opacity .25s ease;
+        }
+
+        &.is-loading span{
+          opacity: 1;
+          animation: cms-data-panel-spinner-rotate .8s linear infinite;
+        }
+      }
 
     }
 
@@ -61,4 +88,10 @@
 
 
 
+}
+
+@keyframes cms-data-panel-spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
 }

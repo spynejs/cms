@@ -76,6 +76,8 @@ export class CmsDataPanel extends ViewStream {
          SpyneCmsProxyTraits.spyneCms$RegisterRootProxy(rootId, idMap, cmsVal, props.rootData.rawData);
 
          props.isLazyPanel = countDataNodes(cmsVal) > LAZY_PANEL_NODE_THRESHOLD;
+         // published for other components (e.g. the tab's lazy-load spinner)
+         props.dataset['isLazy'] = props.isLazyPanel;
 
          //console.log({nestedLevel,idMap}," ROOT DATA IS ",props.data,' --- ',props.rootData);
 

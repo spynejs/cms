@@ -149,6 +149,11 @@ export class ChannelSpyneJsonCmsData extends Channel{
     if(this.props.resetItemsListener === true){
       this.onResetItemsObservable();
       this.props.resetItemsListener = false;
+
+      // first item after idle = a new batch is buffering; lazy data panels
+      // show their loading spinner until ITEMS_ACTIVATED lands
+      const action = "CHANNEL_SPYNE_JSON_CMS_DATA_ITEMS_PENDING_EVENT";
+      this.sendChannelPayload(action, payload);
     }
 
 
@@ -179,7 +184,8 @@ export class ChannelSpyneJsonCmsData extends Channel{
       'CHANNEL_SPYNE_JSON_CMS_DATA_ADDED_EVENT',
       'CHANNEL_SPYNE_JSON_CMS_DATA_CONFORM_PUBLISHED_DATA_EVENT',
       ['CHANNEL_SPYNE_JSON_CMS_DATA_CONFORMED_PANEL_DATA_EVENT', 'onCmsDataPublishConformed'],
-        'CHANNEL_SPYNE_JSON_CMS_DATA_ITEMS_ACTIVATED_EVENT'
+        'CHANNEL_SPYNE_JSON_CMS_DATA_ITEMS_ACTIVATED_EVENT',
+        'CHANNEL_SPYNE_JSON_CMS_DATA_ITEMS_PENDING_EVENT'
     ];
   }
 
