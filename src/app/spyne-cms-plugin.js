@@ -49,7 +49,6 @@ import { ChannelModal } from "./internal/channels/channel-modal";
 // Components
 // ─────────────────────────────────────────────────────────────
 import { SpyneCmsItem } from "./internal/components/spyne-cms/cms-custom-elements/spyne-cms-item";
-import { SpyneCmsItemsRelay } from "./internal/components/spyne-cms/cms-custom-elements/spyne-cms-items-relay";
 import { SpyneCmsItemText } from "./internal/components/spyne-cms/cms-custom-elements/spyne-cms-item-text";
 import { SpyneCmsItemHitbox } from "./internal/components/spyne-cms/cms-custom-elements/spyne-cms-item-hitbox";
 import { MainPluginView } from "./internal/components/main-plugin-view";
@@ -60,7 +59,8 @@ import { MainPluginView } from "./internal/components/main-plugin-view";
 class SpyneCmsPlugin extends SpynePlugin {
   constructor(props = {}) {
     props.name = SpynePluginCmsUITraits.spyneCms$GetPluginName();
-    console.log("LOCAL CMS PLUGIN")
+    props.requiredEvents = ["click", "mouseover", "mouseenter", "keyup", "keydown"];
+    props.requiredCustomEvents = [SpyneCmsItem.connectedEventName]
     SpyneCmsPlugin.getEdetTest();
     super(props);
   }
@@ -83,6 +83,8 @@ class SpyneCmsPlugin extends SpynePlugin {
         sendCachedPayload: true,
       }),
     );
+
+    this.checkForRequiredWindowEvent();
   }
 
   defaultConfig() {
@@ -127,10 +129,6 @@ class SpyneCmsPlugin extends SpynePlugin {
     SpyneApp.registerChannel(new ChannelAuthLocal());
     SpyneApp.registerChannel(new ChannelModal());
 
-    // bridges SpyneCmsItem connectedCallback window events into
-    // CHANNEL_SPYNE_JSON_CMS_DATA (custom elements cannot send to channels)
-    new SpyneCmsItemsRelay().appendToNull();
-
     const getCMSPort = () => {
       let appDir;
 
@@ -158,8 +156,7 @@ class SpyneCmsPlugin extends SpynePlugin {
       "CHANNEL_PLUGIN_JSON_CMS_PLUGIN",
       "CHANNEL_DATA_PANELS",
       "CHANNEL_PLUGIN_CMS_CONFIG",
-      "CHANNEL_SPYNE_JSON_CMS_DATA",
-      "CHANNEL_SPYNE_JSON_CMS_DATA_UI",
+            "CHANNEL_SPYNE_JSON_CMS_DATA_UI",
       "CHANNEL_AUTH_LOCAL",
       "CHANNEL_CMS_ITEMS",
       "CHANNEL_MODAL",

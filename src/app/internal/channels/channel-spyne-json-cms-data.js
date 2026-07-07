@@ -1,5 +1,5 @@
-import {Subject, bufferTime, debounceTime} from 'rxjs';
-import {takeWhile, takeUntil, take, switchMap, isEmpty, filter} from 'rxjs/operators';
+import {debounceTime, buffer, map, throttle} from 'rxjs';
+import {take, filter} from 'rxjs/operators';
 import {Channel, ChannelPayloadFilter, ChannelFetchUtil, SpyneAppProperties} from 'spyne';
 
 export class ChannelSpyneJsonCmsData extends Channel{
@@ -7,9 +7,9 @@ export class ChannelSpyneJsonCmsData extends Channel{
   constructor(name, props={}) {
     name="CHANNEL_SPYNE_JSON_CMS_DATA";
     props.sendCachedPayload = false;
-    props.resetItemsListener = true;
     props.submitPanelIdsArr = [];
     props.publishDataFilesArr = [];
+
     super(name, props);
   }
 
@@ -22,13 +22,37 @@ export class ChannelSpyneJsonCmsData extends Channel{
     this.getChannel("CHANNEL_SPYNE_JSON_CMS_DATA_UI", cmsDataPanelUIFilter)
         .subscribe(this.onBeginPublishDataEvent.bind(this));
 
-    /** TODO: create custom rxjs that does
-     * 1. listens to CHANNEL_ROUTE via getChannel with a timer and collects all customEvents using fromEvents from
-     * SpyneCmsItem.connectedCallback src/app/internal/components/spyne-cms/cms-custom-elements/spyne-cms-item.js:115
-     * and then runs onCMSDataItemsRendered
+    /**
+     * SpyneCmsItem.connectedCallback dispatches a window CustomEvent that
+     * CHANNEL_WINDOW captures (config.channels.WINDOW.customEvents) and
+     * conforms — the CustomEvent arrives as the payload, item data in
+     * payload.detail. Quiet-gap grouping turns the item stream into one
+     * PENDING (leading item) and one ACTIVATED (batch) emission per burst,
+     * closing each burst after 400ms without new items. Bursts are captured
+     * unconditionally: route-driven page renders and data-driven re-renders
+     * alike.
      */
+    const cmsItemConnectedFilter = new ChannelPayloadFilter({
+      action: "CHANNEL_WINDOW_SPYNE_CMS_ITEM_CONNECTED_EVENT"
+    });
 
+    const item$ = this.getChannel("CHANNEL_WINDOW", cmsItemConnectedFilter)
+        .pipe(map((e)=>e.payload.detail));
 
+    const quiet$ = item$.pipe(debounceTime(400));
+
+    item$.pipe(throttle(()=>quiet$))
+        .subscribe(this.onCmsItemsBurstStarted.bind(this));
+
+    item$.pipe(buffer(quiet$), filter((itemsArr)=>itemsArr.length>0))
+        .subscribe(this.onCMSDataItemsRendered.bind(this));
+
+  }
+
+  onCmsItemsBurstStarted(item){
+    // lazy data panel tabs show their loading spinner until ITEMS_ACTIVATED lands
+    const action = "CHANNEL_SPYNE_JSON_CMS_DATA_ITEMS_PENDING_EVENT";
+    this.sendChannelPayload(action, item);
   }
 
   onBeginPublishDataEvent(e){
@@ -114,72 +138,23 @@ export class ChannelSpyneJsonCmsData extends Channel{
   }
 
 
-  onItemsEvent(payload){
-    const action = "CHANNEL_SPYNE_JSON_CMS_DATA_ITEMS_ACTIVATED_EVENT";
-    this.sendChannelPayload(action ,payload);
-  }
-
-  createSpyneCmsItemObs(){
-    const item$ = new Subject();
-    return item$.pipe(
-        bufferTime(500),
-        takeWhile((arr)=>{
-          const bool = arr.length>0
-          this.props.resetItemsListener = !bool;
-          return bool;
-
-        })
-    )
-
-  }
-
-
-
-  onResetItemsObservable(){
-    this.props.spyneCmsItems$ = this.createSpyneCmsItemObs();
-    this.props.spyneCmsItems$.subscribe(this.onItemsEvent.bind(this));
-
-  }
-
-
-
-  onCmsItemAdded(e){
-    const {payload} = e;
-
-    if(this.props.resetItemsListener === true){
-      this.onResetItemsObservable();
-      this.props.resetItemsListener = false;
-
-      // first item after idle = a new batch is buffering; lazy data panels
-      // show their loading spinner until ITEMS_ACTIVATED lands
-      const action = "CHANNEL_SPYNE_JSON_CMS_DATA_ITEMS_PENDING_EVENT";
-      this.sendChannelPayload(action, payload);
-    }
-
-
-    this.props.spyneCmsItems$.next(payload);
-
-    //console.log("the spyne cms item payload ADDED is ",payload);
-
-  }
-
-
   onCmsItemRemoved(e){
     const {payload} = e;
     //console.log("the spyne cms item payload REMOVED is ",payload);
 
   }
-  onCMSDataItemsRendered(e){
-    // returns payload of all recent cms items just loaded
+
+  onCMSDataItemsRendered(itemsArr){
+    // payload is the batch of cms items just loaded (one burst)
     const action = "CHANNEL_SPYNE_JSON_CMS_DATA_ITEMS_ACTIVATED_EVENT";
-    //this.sendChannelPayload(action, payload)
+    this.sendChannelPayload(action, itemsArr);
   }
 
   addRegisteredActions() {
 
     return [
       ['CHANNEL_SPYNE_JSON_CMS_DATA_MANAGE_CMS_DATA_EVENT', 'onManageCmsData'],
-      ['CHANNEL_SPYNE_JSON_CMS_DATA_ITEM_ADDED', 'onCmsItemAdded'],
+      'CHANNEL_SPYNE_JSON_CMS_DATA_ITEM_ADDED',
       ['CHANNEL_SPYNE_JSON_CMS_DATA_ITEM_REMOVED', 'onCmsItemRemoved'],
       'CHANNEL_SPYNE_JSON_CMS_DATA_ADDED_EVENT',
       'CHANNEL_SPYNE_JSON_CMS_DATA_CONFORM_PUBLISHED_DATA_EVENT',
