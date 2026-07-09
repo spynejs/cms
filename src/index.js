@@ -51,7 +51,7 @@ const config = {
       listenForOrientation: true,
       debounceMSTimeForScroll: 50,
       events: ["click", "mouseover", "mouseenter", "keyup", "keydown"],
-      customEvents: ["spyne_cms_item_connected"]
+      customEvents: [{name: "spyne_cms_item_connected", buffer: 400}]
     },
 
     ROUTE: {

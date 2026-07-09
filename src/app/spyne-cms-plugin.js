@@ -60,7 +60,7 @@ class SpyneCmsPlugin extends SpynePlugin {
   constructor(props = {}) {
     props.name = SpynePluginCmsUITraits.spyneCms$GetPluginName();
     props.requiredEvents = ["click", "mouseover", "mouseenter", "keyup", "keydown"];
-    props.requiredCustomEvents = [SpyneCmsItem.connectedEventName]
+    props.requiredCustomEvents = [SpyneCmsItem.connectedEventConfig]
     SpyneCmsPlugin.getEdetTest();
     super(props);
   }
@@ -117,6 +117,15 @@ class SpyneCmsPlugin extends SpynePlugin {
       SpyneCmsProxyTraits.spyneCms$ProxyName,
       SpyneCmsProxyTraits.spyneCms$CreateCmsProxyObjOrArr,
     );
+
+    // self-healing bindings: lets DomElementTemplate resolve proxy-stripped
+    // clones back to their live proxies via the __cms__id tombstone.
+    // Guarded for spyne builds that predate the hydration hooks.
+    if (typeof this.SpyneAppProperties.registerCmsRehydrator === "function") {
+      this.SpyneAppProperties.registerCmsRehydrator(
+        SpyneCmsProxyTraits.spyneCms$RehydrateByCmsId,
+      );
+    }
 
     SpyneApp.registerChannel(new ChannelSpyneJsonCmsDataUI());
     SpyneApp.registerChannel(new ChannelDataPanels());

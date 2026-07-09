@@ -117,6 +117,11 @@ export class CmsDataPanelProperty extends ViewStream {
       const frag = document.createDocumentFragment();
 
       for (let [cmsKey, cmsVal] of Object.entries(containerVal)) {
+        // reserved metadata (e.g. the virtual __cms__id tombstone) is not
+        // content — keep it out of panel rows and the publish pipeline
+        if (String(cmsKey).startsWith('__cms__')){
+          continue;
+        }
         if (cmsVal === null){
           cmsVal = "null";
         }
@@ -145,6 +150,11 @@ export class CmsDataPanelProperty extends ViewStream {
       const frag = document.createDocumentFragment();
 
       for (let [cmsKey, cmsVal] of Object.entries(containerVal)) {
+        // reserved metadata (e.g. the virtual __cms__id tombstone) is not
+        // content — keep it out of panel rows and the publish pipeline
+        if (String(cmsKey).startsWith('__cms__')){
+          continue;
+        }
         if (cmsVal === null){
           cmsVal = "null";
         }

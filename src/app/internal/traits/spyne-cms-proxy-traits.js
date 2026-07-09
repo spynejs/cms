@@ -69,12 +69,51 @@ export class SpyneCmsProxyTraits extends SpyneTrait {
     }
     // JSON round-trip strips proxy wrappers when falling back to the proxy
     // (cms metadata props are handler-provided, not own-enumerable) and
-    // detaches the returned value from the registry copy
-    const detached = JSON.parse(JSON.stringify(val));
+    // detaches the returned value from the registry copy. The __cms__id
+    // tombstone IS own-enumerable by design, so strip it from the fallback
+    // copy to keep published output identical to the source file.
+    const detached = SpyneCmsProxyTraits.spyneCms$StripCmsIdsDeep(JSON.parse(JSON.stringify(val)));
     // rendered sections pass through input/textarea parsing, which decodes
     // HTML entities that sanitization encoded (e.g. &nbsp;); decode here so
     // materialized and unmaterialized sections publish identically
     return SpyneCmsProxyTraits.spyneCms$DecodeHtmlEntitiesDeep(detached);
+  }
+
+  /**
+   * Resolves a plain (proxy-stripped) clone back to its live proxy using the
+   * __cms__id tombstone stamped at proxification. Registered with
+   * SpyneAppProperties.registerCmsRehydrator so DomElementTemplate can
+   * self-heal data that was structurally cloned by app parsers.
+   * Cost for non-CMS data: one own-property read.
+   */
+  static spyneCms$RehydrateByCmsId(data){
+    const cmsId = data?.__cms__id;
+    if (cmsId === undefined){
+      return undefined;
+    }
+    const registry = SpyneCmsProxyTraits.spyneCms$GetRootRegistryByCmsId(cmsId);
+    const pathArr = registry?.idMap?.get(cmsId);
+    if (pathArr === undefined){
+      return undefined;
+    }
+    return pathArr.length === 0 ? registry.rootProxy : path(pathArr, registry.rootProxy);
+  }
+
+  /**
+   * Removes __cms__id tombstones from a detached plain copy. Used by the
+   * serializer's proxy-fallback path so published output never carries the
+   * identity prop (the rawData path is pristine and needs no stripping).
+   */
+  static spyneCms$StripCmsIdsDeep(val){
+    if (val !== null && typeof val === 'object'){
+      if (Object.prototype.hasOwnProperty.call(val, '__cms__id')){
+        delete val.__cms__id;
+      }
+      for (const k of Object.keys(val)){
+        SpyneCmsProxyTraits.spyneCms$StripCmsIdsDeep(val[k]);
+      }
+    }
+    return val;
   }
 
   static spyneCms$DecodeHtmlEntitiesDeep(val){
@@ -285,6 +324,14 @@ export class SpyneCmsProxyTraits extends SpyneTrait {
 
     const proxyHash = {__proxy__isProxy, __proxy__proxyName, __proxy__props};
 
+    // NOTE on __cms__id: it is served by the get trap (via cmsHash) like all
+    // other reserved metadata, and deliberately NOT advertised in ownKeys.
+    // Advertising it made every key-iterating consumer see a phantom key and
+    // made revived clones materialize it as real data. The consequence: only
+    // proxy-preserving copies (safeClone / safeCloneDeep / e.safeClone /
+    // safeAugment) and wrappers holding proxied children keep their identity;
+    // a raw deep ramda clone strips it — fix those call sites with safeClone.
+
     if (_type==='array'){
       // CREATE A MAP ARRAY TO KEEP TRACK OF ORIGINAL INDEX POSITIONS
       const createKeyValObjReducer = (acc, o, i) => {
@@ -418,11 +465,8 @@ export class SpyneCmsProxyTraits extends SpyneTrait {
       const __cms__type = _type;
 
 
-    const cmsHash = {__cms__isProxy,__cms__dataPath, __cms__rootData, __cms__dataId,__cms__type,_type, _proxyName, _dataPath, _iter};
+    const cmsHash = {__cms__isProxy,__cms__dataPath, __cms__rootData, __cms__dataId, __cms__id: __cms__dataId, __cms__type,_type, _proxyName, _dataPath, _iter};
     const cmsRE = /^(__cms__)/;
-
-
-
 
     return  SpyneCmsProxyTraits.spyneCms$CreateCmsProxyObjOrArr(obj, cmsHash);
 
@@ -436,7 +480,8 @@ export class SpyneCmsProxyTraits extends SpyneTrait {
     // keep a pristine copy for the hybrid serializer: unmaterialized lazy
     // sections publish byte-identical to the source file (only the first —
     // root — call per rootData wins; later fragment proxifications skip)
-    if (rootData.rawData === undefined) {
+    const isRootCall = rootData.rawData === undefined;
+    if (isRootCall === true) {
       rootData.rawData = clone(origObj);
     }
 
@@ -489,7 +534,7 @@ export class SpyneCmsProxyTraits extends SpyneTrait {
 
     proxyIterable(jsonObj);
 
-    return SpyneCmsProxyTraits.spyneCms$CreateProxyParams(
+    const rootProxy = SpyneCmsProxyTraits.spyneCms$CreateProxyParams(
       jsonObj,
       [],
       'object',
@@ -497,6 +542,21 @@ export class SpyneCmsProxyTraits extends SpyneTrait {
       cmsPrefix,
       rootData
     );
+
+    // register at proxification time so re-hydration by cmsId resolves before
+    // any data panel materializes; the panel's later registration overwrites
+    // with identical values. Fragment (non-root) calls must not overwrite the
+    // registry with a fragment proxy, hence the isRootCall guard.
+    if (isRootCall === true) {
+      SpyneCmsProxyTraits.spyneCms$RegisterRootProxy(
+        rootData.rootProxyId,
+        idMap,
+        rootProxy,
+        rootData.rawData
+      );
+    }
+
+    return rootProxy;
   }
 
 

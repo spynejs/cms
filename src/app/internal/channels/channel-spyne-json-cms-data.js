@@ -1,5 +1,4 @@
-import {debounceTime, buffer, map, throttle} from 'rxjs';
-import {take, filter} from 'rxjs/operators';
+import {take} from 'rxjs/operators';
 import {Channel, ChannelPayloadFilter, ChannelFetchUtil, SpyneAppProperties} from 'spyne';
 
 export class ChannelSpyneJsonCmsData extends Channel{
@@ -24,29 +23,32 @@ export class ChannelSpyneJsonCmsData extends Channel{
 
     /**
      * SpyneCmsItem.connectedCallback dispatches a window CustomEvent that
-     * CHANNEL_WINDOW captures (config.channels.WINDOW.customEvents) and
-     * conforms — the CustomEvent arrives as the payload, item data in
-     * payload.detail. Quiet-gap grouping turns the item stream into one
-     * PENDING (leading item) and one ACTIVATED (batch) emission per burst,
-     * closing each burst after 400ms without new items. Bursts are captured
-     * unconditionally: route-driven page renders and data-driven re-renders
-     * alike.
+     * CHANNEL_WINDOW captures AND batches — hosts declare
+     * SpyneCmsItem.connectedEventConfig ({name: 'spyne_cms_item_connected',
+     * buffer: 400}) in config.channels.WINDOW.customEvents, so ONE payload
+     * arrives per render burst with payload.detail as the details array.
+     * A host that declares the plain string name instead degrades
+     * gracefully: each unbatched payload is treated as a burst of one.
      */
     const cmsItemConnectedFilter = new ChannelPayloadFilter({
       action: "CHANNEL_WINDOW_SPYNE_CMS_ITEM_CONNECTED_EVENT"
     });
 
-    const item$ = this.getChannel("CHANNEL_WINDOW", cmsItemConnectedFilter)
-        .pipe(map((e)=>e.payload.detail));
+    this.getChannel("CHANNEL_WINDOW", cmsItemConnectedFilter)
+        .subscribe(this.onCmsItemsBatchReturned.bind(this));
 
-    const quiet$ = item$.pipe(debounceTime(400));
+  }
 
-    item$.pipe(throttle(()=>quiet$))
-        .subscribe(this.onCmsItemsBurstStarted.bind(this));
+  onCmsItemsBatchReturned(e){
+    const {detail, isBatch} = e.payload;
+    const itemsArr = isBatch === true ? detail : [detail];
 
-    item$.pipe(buffer(quiet$), filter((itemsArr)=>itemsArr.length>0))
-        .subscribe(this.onCMSDataItemsRendered.bind(this));
+    if (itemsArr.length === 0){
+      return;
+    }
 
+    this.onCmsItemsBurstStarted(itemsArr[0]);
+    this.onCMSDataItemsRendered(itemsArr);
   }
 
   onCmsItemsBurstStarted(item){

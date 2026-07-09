@@ -130,6 +130,15 @@ export class SpyneCmsItem extends HTMLElement{
     return 'spyne_cms_item_connected';
   }
 
+  /**
+   * The exact config.channels.WINDOW.customEvents entry host apps should
+   * declare: CHANNEL_WINDOW closes a batch 400ms after the last item connects
+   * and emits ONE payload per render burst (payload.detail = details array).
+   */
+  static get connectedEventConfig(){
+    return {name: SpyneCmsItem.connectedEventName, buffer: 400};
+  }
+
 
 
   connectedCallback1(e){
