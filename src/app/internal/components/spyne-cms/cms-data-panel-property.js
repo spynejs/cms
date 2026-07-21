@@ -436,12 +436,13 @@ export class CmsDataPanelProperty extends ViewStream {
 
     onCmsFocusEvent(e){
       /**
-       * FYI: Nesting of folders on focus occurs on CmsDataPanel
+       * FYI: Nesting of folders on focus occurs on CmsDataPanel,
+       * which also owns scroll positioning — focus here must not scroll
        *
        * */
 
       const {payload} = e;
-      this.props.el$('.cms-panel-input.type-property').el.focus();
+      this.props.el$('.cms-panel-input.type-property').el.focus({preventScroll: true});
     }
 
     onInputUpdated(e){

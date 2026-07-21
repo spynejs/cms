@@ -546,13 +546,24 @@ INSTRUCTIONS:
       const focusDd = this.props.el.querySelector(`dd[data-cms-id="${cmsId}"][data-cms-key="${cmsKey}"]`);
 
       if (focusDd !== null && focusDd.dataset.hydrated === 'false'){
-        // the instance created mid-dispatch misses this in-flight event,
-        // so hydrate and focus the input directly
+        // the instance created mid-dispatch misses this in-flight event
         this.hydrateDdChain(focusDd);
-        focusDd.querySelector('.cms-panel-input.type-property')?.focus();
       }
 
+      // nest-expand state FIRST, so collapse/expand layout settles before
+      // any scrolling is computed
       this.spyneCmsPanel$OnFocusElementEvent(e);
+
+      if (focusDd !== null){
+        // focus without native scrolling, then deliberately center the row —
+        // default focus() scrolling parks the row at the panel's top edge
+        // with its parent header scrolled out of view (orphaned look)
+        const positionFocusedRow = ()=>{
+          focusDd.querySelector('.cms-panel-input.type-property')?.focus({preventScroll: true});
+          focusDd.scrollIntoView({block: 'center'});
+        };
+        requestAnimationFrame(positionFocusedRow);
+      }
     }
 
   onCreatePropertyEvent(e){
