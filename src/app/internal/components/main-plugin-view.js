@@ -85,7 +85,7 @@ export class MainPluginView extends ViewStream {
   onRendered() {
 
     const {isCodemapBuild} = SpyneAppProperties;
-    console.log('codemap build ', {isCodemapBuild})
+    //console.log('codemap build ', {isCodemapBuild})
 
     if (isCodemapBuild){
       return;

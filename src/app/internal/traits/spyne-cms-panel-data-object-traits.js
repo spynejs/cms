@@ -212,11 +212,11 @@ export class SpyneCmsPanelDataObjectTraits extends SpyneTrait {
 
   }
 
-  static spyneCmsPanelDataObj$NestExpandOverride(e){
+  static spyneCmsPanelDataObj$NestExpandOverride(e, forceOpen=false){
     const dlEl = this.props.el.querySelector(":scope > dl");
     const {nestExpandOverride} = dlEl.dataset;
     const isOverrideBool = nestExpandOverride === "true" || dlEl.offsetHeight>=60;
-    dlEl.dataset['nestExpandOverride'] = !isOverrideBool;
+    dlEl.dataset['nestExpandOverride'] = forceOpen===true ? forceOpen : !isOverrideBool;
 
     //console.log("EXPAND OVERRIDE ",{dlEl, nestExpandOverride, isOverrideBool, e});
   }

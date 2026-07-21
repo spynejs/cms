@@ -377,6 +377,9 @@ export class CmsDataPanelProperty extends ViewStream {
       const {data, isContainer} = this.props;
 
       this.appendView(new CmsDataPanelProperyControlsOptions({data, isContainer}),".controls-right");
+
+      this.spyneCmsPanelDataObj$NestExpandOverride({}, true);
+
       // this.props.el$('.controls-right').addClass('expand');
     }
   }

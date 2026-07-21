@@ -8,13 +8,17 @@
   background: palette-mixins.$ldNeutral-080;
 
   #nested-levels-tags-holder{
-    position: relative;
-    width: 100%;
+    position: sticky;
+    top:0;
+    width: calc(100% - 4rem);
     height: 30px;
-    margin-left: .25rem;
+    margin-left: .5rem;
+    z-index: 10;
+    background: palette-mixins.$ldNeutral-080;
+
     button{
       position: relative;
-      top:1rem;
+      top:4px;
       width: 8.5px;
       margin-left: 1rem;
       //height: 30px;
