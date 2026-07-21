@@ -62,6 +62,7 @@ $collapseHeight: 37px;
   .cms-data-panel {
       position:absolute;
       top:0;
+      height: calc(100% - 48px);
 
       color: palette.$Neutral-200;
 

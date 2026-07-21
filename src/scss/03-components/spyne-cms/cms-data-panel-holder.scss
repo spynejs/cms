@@ -5,7 +5,9 @@
   margin:2rem 2rem 2rem 0;
   padding: 2rem 0;
   width: calc(100% - 4rem);
-  height: calc(100% - 156px);
+  height: calc(100% - 110px);
+  margin-top: 0 !important;;
+  top: 56px;
   overflow: hidden;;
 
 
@@ -20,7 +22,8 @@
 
 
   border-top: 8px solid palette-mixins.$ldNeutral-085;;
-  border-bottom: 8px solid palette-mixins.$ldNeutral-085;;
+  //border-bottom: 8px solid palette-mixins.$ldNeutral-085;
+    border-bottom: none;
 
   }
 
