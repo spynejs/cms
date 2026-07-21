@@ -77,6 +77,12 @@ export class ChannelDataPanels extends Channel{
       this.sendChannelPayload(action, newPayload)
     }
 
+    const copyRequestFn = ()=>{
+      const action = "CHANNEL_DATA_PANELS_COPY_REQUEST_EVENT";
+      const newPayload = clone(payload);
+      this.sendChannelPayload(action, newPayload)
+    }
+
 
     const duplicateFn = ()=>{
       const action = "CHANNEL_DATA_PANELS_APPEND_PROPERTY";
@@ -107,6 +113,7 @@ export class ChannelDataPanels extends Channel{
       nestExpandOverride: ()=>this.onToggleNestExpand(e),
       expand: ()=>this.onSendControlsPanelEvent(true, propertyId),
       prompt: promptRequestFn,
+      copy: copyRequestFn,
       paste: pasteRequestFn,
       delete: deletePropFn,
       convert: convertPropFn,
@@ -264,6 +271,7 @@ export class ChannelDataPanels extends Channel{
     return [
       'CHANNEL_DATA_PANELS_APPEND_PROPERTY',
       'CHANNEL_DATA_PANELS_PROMPT_REQUEST_EVENT',
+      'CHANNEL_DATA_PANELS_COPY_REQUEST_EVENT',
       'CHANNEL_DATA_PANELS_PASTE_REQUEST_EVENT',
       'CHANNEL_DATA_PANELS_PROPERTY_PASTE_OVERRIDE_VALUE_EVENT',
       ['CHANNEL_DATA_PANELS_PROPERTY_PASTE_OVERRIDE_VALUE_REQUEST_EVENT', 'onPropertyPasteOverrideValRequest'],

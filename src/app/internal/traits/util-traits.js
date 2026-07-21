@@ -96,6 +96,16 @@ export class UtilTraits extends SpyneTrait {
     return Math.random().toString(36).replace(/\d/gm, '').substring(1,8);
   }
 
+  static util$HashString(str){
+    // FNV-1a 32-bit — fast, stable content hash for change detection
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++){
+      hash ^= str.charCodeAt(i);
+      hash = Math.imul(hash, 0x01000193);
+    }
+    return (hash >>> 0).toString(36);
+  }
+
 
   static util$checkForDeeplink(routeData){
     const expandCard = (page, card) =>{

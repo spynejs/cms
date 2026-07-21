@@ -105,6 +105,12 @@ export class CmsDataPanel extends ViewStream {
         payload: (v)=>v.rootProxyId === rootProxyId
       });
 
+      // input-change payloads carry the row's cmsId, prefixed by this
+      // panel's rootProxyId
+      const onInputForThisPanelFilter = new ChannelPayloadFilter({
+        payload: (v)=>String(v.cmsId ?? '').startsWith(rootProxyId)
+      });
+
 /*      const testDeletePropFilter = new ChannelPayloadFilter({
 
       })*/
@@ -119,8 +125,10 @@ export class CmsDataPanel extends ViewStream {
          ['CHANNEL_SPYNE_JSON_CMS_DATA_ITEMS_ACTIVATED_EVENT', 'onDataItemsActivated'],
          ['CHANNEL_DATA_PANELS_TEST_PASSED_EVENT', "spyneDPTests$OnTestPassed", onDataPanelEventFilter],
          ['CHANNEL_SPYNE_JSON_CMS_DATA_CONFORM_PUBLISHED_DATA_EVENT', "onBeginPublishData", onBeginPublishPayloadFilter],
+         ['CHANNEL_SPYNE_JSON_CMS_DATA_UI_INPUT_CHANGED_EVENT', "onDataInputChanged", onInputForThisPanelFilter],
          ["CHANNEL_DATA_PANELS_(DRAGMOVE|DRAGEND)_PROPERTY_EVENT", "onDragEvent", onDataPanelEventFilter],
           ["CHANNEL_DATA_PANELS_PROMPT_REQUEST_EVENT", "onPromptMsgEvent", onDataPanelEventFilter],
+          ["CHANNEL_DATA_PANELS_COPY_REQUEST_EVENT", "onCopyMsgEvent", onDataPanelEventFilter],
           ["CHANNEL_DATA_PANELS_PASTE_REQUEST_EVENT", "onPasteMsgEvent", onDataPanelEventFilter]
 
         ];
@@ -155,6 +163,8 @@ export class CmsDataPanel extends ViewStream {
         activeElementEl.dataset['overrideVal'] = valueToType;
         const action = "CHANNEL_DATA_PANELS_PROPERTY_PASTE_OVERRIDE_VALUE_REQUEST_EVENT"
         this.sendInfoToChannel("CHANNEL_DATA_PANELS", {activeElementId, overrideVal:valueToType, isContainer, valueType, cmsType}, action)
+
+        this.checkForDataChange();
 
 
 
@@ -238,6 +248,36 @@ Additional Rules:
 
       return isPageItem ? pageItemPrompt : '';
 
+
+    }
+
+    async onCopyMsgEvent(e){
+      const {payload} = e;
+      const {cmsKey, activeElementId, isContainer} = payload;
+
+      try {
+
+        const isContainerBool = String(isContainer) === "true";
+        const activeElementEl = this.props.el$(`#${activeElementId}`).el;
+
+        // same value extraction as onPromptMsgEvent, but copies ONLY the raw
+        // data — no FILE/PATH/ACTION prompt scaffolding
+        let copyValue;
+
+        if (isContainerBool === false && cmsKey) {
+          copyValue = activeElementEl.querySelector('.cms-panel-input.type-property')?.value;
+        } else {
+          const currentData = this.spyneCmsPanelData$GetDataFromDom(activeElementEl);
+          const containerValue = compose(head, defaultTo([]), values)(currentData);
+          copyValue = JSON.stringify(containerValue, null, 2);
+        }
+
+        await UtilTraits.util$CopyToClipboard(copyValue);
+
+      } catch(err){
+
+        console.warn('error copying value to clipboard', err);
+      }
 
     }
 
@@ -437,6 +477,40 @@ INSTRUCTIONS:
     }
 
     /**
+     * PUBLISH STATE: the panel owns its data truth. A baseline hash of the
+     * serialized data is taken at build (and rebased on publish); any
+     * mutating event triggers a debounced re-hash. dataHasUpdated is TRUE
+     * only when the serialization actually differs from the baseline — so
+     * same-length edits register, adds/moves/deletes register, and
+     * reverting a change deactivates publish.
+     */
+    getDataHash(){
+      return UtilTraits.util$HashString(JSON.stringify(this.spyneCmsPanelData$GetDataFromDom(this.props.el)));
+    }
+
+    sendPanelDataStatus(dataHasUpdated){
+      this.props.dataHasChanged = dataHasUpdated;
+      const {rootProxyId} = this.props.rootData;
+      const action = "CHANNEL_SPYNE_JSON_CMS_DATA_UI_PANEL_DATA_STATUS_EVENT";
+      this.sendInfoToChannel("CHANNEL_SPYNE_JSON_CMS_DATA_UI", {rootProxyId, dataHasUpdated}, action);
+    }
+
+    checkForDataChange(){
+      window.clearTimeout(this.props.dataCheckTimeout);
+      const runCheck = ()=>{
+        const dataHasUpdated = this.getDataHash() !== this.props.baselineDataHash;
+        if (dataHasUpdated !== this.props.dataHasChanged){
+          this.sendPanelDataStatus(dataHasUpdated);
+        }
+      };
+      this.props.dataCheckTimeout = window.setTimeout(runCheck, 400);
+    }
+
+    onDataInputChanged(e){
+      this.checkForDataChange();
+    }
+
+    /**
      * HYDRATION: inert rows (data-hydrated="false") become live
      * CmsDataPanelProperty ViewStreams on first interaction. Hydrating the
      * full ancestor chain keeps the invariant that a hydrated row's parent
@@ -570,6 +644,7 @@ INSTRUCTIONS:
       const {payload} = e;
       //console.log("CREATE PROP EVENT ",payload);
       this.spyneCmsPanelDataObj$CreateNewProperty(payload);
+      this.checkForDataChange();
   }
 
     onBeginPublishData(e){
@@ -587,6 +662,13 @@ INSTRUCTIONS:
         const channel = "CHANNEL_SPYNE_JSON_CMS_DATA";
         this.sendInfoToChannel(channel, newPayload, action);
 
+        // the published serialization becomes the new baseline, so the
+        // publish button deactivates until the data actually changes again
+        this.props.baselineDataHash = UtilTraits.util$HashString(JSON.stringify(fileData));
+        if (this.props.dataHasChanged === true){
+          this.sendPanelDataStatus(false);
+        }
+
       //console.log("on begin publish event is ",{fileName, fileStr, fileData, rootData, submitPanelIdsArr,payload,e}, this.props.rootData.rootProxyId)
     }
 
@@ -594,6 +676,8 @@ INSTRUCTIONS:
       const {payload} = e;
       const {isTestEvent, activeElementId} = payload;
       //console.log("MOVE COMPLETED EVENT ",{payload, isTestEvent, activeElementId}, this.props);
+
+      this.checkForDataChange();
 
 
       //const parentCmsId = this.props.el$(activeElementId).el.dataset.parentCmsId;
@@ -615,7 +699,7 @@ INSTRUCTIONS:
 
       //console.log("APPEND PROPERTY cms-data-panels ", {isTestEvent, moveStateNum, payload});
       const {appendType, appendSelector} = this.spyneCmsPanelDataObj$AppendNewProperty(payload);
-      this.spyneCmsPanelData$CheckForPersistentUpdate();
+      this.checkForDataChange();
 
       if (moveStateNum>=0){
         //console.log("MOVE STATE NUM cms-data-panels",{moveStateNum, appendType, appendSelector,payload});
@@ -639,7 +723,7 @@ INSTRUCTIONS:
       const {activeElementId, isTestEvent} = payload;
       //console.log("ITEM DELETED ON PANEL",{payload,activeElementId})
 
-      this.spyneCmsPanelData$CheckForPersistentUpdate();
+      this.checkForDataChange();
 
 
       if (isTestEvent === true) {
@@ -688,6 +772,7 @@ INSTRUCTIONS:
       this.addChannel("CHANNEL_SPYNE_JSON_CMS_DATA");
       this.addChannel("CHANNEL_DATA_PANELS");
       this.addChannel("CHANNEL_CMS_ITEMS")
+      this.addChannel("CHANNEL_SPYNE_JSON_CMS_DATA_UI");
       const {rootProxyId} = this.props.rootData;
 
       const mapTagObj = (i)=>{
@@ -717,6 +802,11 @@ INSTRUCTIONS:
         this.spyneCmsPanelDataObj$AddProps();
       }
       this.addHydrationListeners();
+
+      // publish-state baseline: hash of the just-built serialization; the
+      // initial status report keeps the publish button disabled at load
+      this.props.baselineDataHash = this.getDataHash();
+      this.sendPanelDataStatus(false);
 
       /**
        * =========================================

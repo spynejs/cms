@@ -10,15 +10,11 @@ export class ChannelSpyneJsonCmsDataUI extends Channel{
     name="CHANNEL_SPYNE_JSON_CMS_DATA_UI";
     props.sendCachedPayload = false;
     props.traits = SpyneCmsPanelDataTraits;
-    props.dataStateMachine = SpyneCmsPanelDataTraits.spyneCmsPanelData$CreateDataStateMachine();
-    props.dataPanelChangedArr = [];
+    // per-panel publish state: rootProxyId -> dataHasUpdated, reported by
+    // each CmsDataPanel from its baseline-hash comparison
+    props.changedPanelsMap = {};
+    props.aggregateChanged = undefined;
     props.submittedDataPanelsArr = [];
-
-    /**
-     *
-     * TODO: ADD SMART CHECK FOR MOVE, DELETE AND DUPLICATE METHODS
-     *
-     * */
 
 
     super(name, props);
@@ -51,16 +47,16 @@ export class ChannelSpyneJsonCmsDataUI extends Channel{
 
   onDataPanelSubmitUpdates(e){
 
-    const {dataPanelChangedArr} = this.props;
-    const {rootProxyIds} = this.props.dataStateMachine;
-    const submitPanelIdsArr =  uniq(dataPanelChangedArr.concat(rootProxyIds));
-    this.props.dataPanelChangedArr = submitPanelIdsArr
+    // only panels whose serialization actually differs from their baseline
+    const {changedPanelsMap} = this.props;
+    const submitPanelIdsArr = Object.keys(changedPanelsMap).filter(id => changedPanelsMap[id] === true);
+
+    if (submitPanelIdsArr.length === 0){
+      return;
+    }
+
     const action = "CHANNEL_SPYNE_JSON_CMS_DATA_UI_SUBMIT_DATA_EVENT";
-
     this.sendChannelPayload(action, {submitPanelIdsArr})
-
-   // console.log('submit updates ',{submitPanelIdsArr, rootProxyIds, dataPanelChangedArr});
-
 
   }
 
@@ -142,55 +138,39 @@ export class ChannelSpyneJsonCmsDataUI extends Channel{
 
   }
 
-  onPanelChangedEvent(e){
+  onPanelDataStatus(e){
+    // panels report their baseline-hash comparison result; the aggregate
+    // (any panel changed) drives the publish button via DATA_STATE_CHANGED
+    const {rootProxyId, dataHasUpdated} = e.payload;
+    this.props.changedPanelsMap[rootProxyId] = dataHasUpdated === true;
 
+    const anyChanged = Object.values(this.props.changedPanelsMap).some(v => v === true);
 
-
-    const {payload} = e;
-    const {rootProxyId} = payload;
-    const action = "CHANNEL_SPYNE_JSON_CMS_DATA_UI_DATA_STATE_CHANGED_EVENT";
-    const dataHasUpdated = true;
-    const dataStateChanged = true;
-    const isPersistentChange = true;
-    const newPayload = {rootProxyId, dataHasUpdated, dataStateChanged, isPersistentChange};
-
-
-    if (this.props.dataPanelChangedArr.length<=0){
-      this.sendChannelPayload(action, newPayload);
+    if (anyChanged !== this.props.aggregateChanged){
+      this.props.aggregateChanged = anyChanged;
+      const action = "CHANNEL_SPYNE_JSON_CMS_DATA_UI_DATA_STATE_CHANGED_EVENT";
+      this.sendChannelPayload(action, {dataHasUpdated: anyChanged, dataStateChanged: true});
     }
 
-    this.props.dataPanelChangedArr.push(rootProxyId);
-   // console.log("PANEL CHANGED ARR IS ",{newPayload, payload},this.props.dataPanelChangedArr);
-    //document.querySelector(`.cms-data-panel.${rootProxyId}`)
+  }
 
+  onPanelChangedEvent(e){
+    // legacy persistent-change latch — superseded by onPanelDataStatus,
+    // where panels report true hash-based state (including reverts)
   }
 
 
   onCmsDataPropertyChanged(e){
-
-
-    const {payload,srcElement} = e;
-    const {valChanged, isKey} = payload;
-    const {vsid} = srcElement;
-    //isKey = String(isKey) === "true";
-
-    this.props.dataStateMachine.update(valChanged, vsid, isKey);
-    const {dataHasUpdated, dataStateChanged, elements} = this.props.dataStateMachine;
-
-
-    if (dataStateChanged===true && this.props.dataPanelChangedArr.length<=0){
-      const action = "CHANNEL_SPYNE_JSON_CMS_DATA_UI_DATA_STATE_CHANGED_EVENT";
-      this.sendChannelPayload(action, {dataHasUpdated, dataStateChanged, elements});
-    }
-
-   // console.log('changed payload is ',{isKey,valChanged,rootProxyIds, vsid, dataHasUpdated, dataStateChanged: dataStateChanged, elements, payload})
-
+    // legacy per-row length-based state machine — superseded by
+    // onPanelDataStatus; rows' DATA_UPDATE_CHANGED events no longer drive
+    // publish state
   }
 
   addRegisteredActions() {
 
     return [
       "CHANNEL_SPYNE_JSON_CMS_DATA_UI_DATA_STATE_CHANGED_EVENT",
+      ["CHANNEL_SPYNE_JSON_CMS_DATA_UI_PANEL_DATA_STATUS_EVENT", "onPanelDataStatus"],
       ["CHANNEL_SPYNE_JSON_CMS_DATA_UI_PANEL_PERSISTENT_CHANGE_EVENT", "onPanelChangedEvent"],
       ["CHANNEL_SPYNE_JSON_CMS_DATA_UI_DATA_UPDATE_CHANGED_EVENT", "onCmsDataPropertyChanged"],
       "CHANNEL_SPYNE_JSON_CMS_DATA_UI_SUBMIT_DATA_EVENT",

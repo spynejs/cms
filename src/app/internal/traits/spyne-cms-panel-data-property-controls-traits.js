@@ -291,6 +291,12 @@ const dragMove$ = dragStart$.pipe(
         propertyType: "none"
       },
       {
+        title: "Copy",
+        icon: "content_copy",
+        type: "copy",
+        propertyType: "none"
+      },
+      {
         title: "Paste",
         icon: "content_paste",
         type: "paste",
