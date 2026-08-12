@@ -195,6 +195,7 @@ $collapseHeight: 37px;
 
       > dt {
         .controls-container.cms-data-panel-property-controls .controls-holder .ctrls.controls-left button.toggle {
+          display: block;
           @extend .toggle-btn-closed;
         }
       }
