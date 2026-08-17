@@ -16,8 +16,29 @@ export class CmsItemSelectBox extends ViewStream {
         return [
           ["CHANNEL_SPYNE_JSON_CMS_DATA_UI_FOCUS_EVENT", "onItemFocused"],
               ["CHANNEL_CMS_ITEMS_FOCUS_EVENT", "onItemFocused"],
-            ["CHANNEL_CMS_ITEMS_BLUR_EVENT", "onBlurEvent"]
+            ["CHANNEL_CMS_ITEMS_BLUR_EVENT", "onBlurEvent"],
+            ["CHANNEL_DATA_PANELS_ITEM_DELETED_PROPERTY", "onItemDeletedEvent"]
         ];
+    }
+
+    /**
+     * If the highlight is parked on an item whose panel row was just
+     * deleted, the item is now display:none — blur rather than float over
+     * nothing.
+     */
+    onItemDeletedEvent(e){
+
+      const {deletedCmsId, deletedCmsKey, deletedIsContainer, deletedCmsIdsArr} = e.payload;
+      const {cmsId, cmsKey} = this.props.el.dataset;
+
+      const isDeleted = deletedIsContainer === true ?
+          (deletedCmsIdsArr || []).includes(cmsId) :
+          cmsId === deletedCmsId && cmsKey === deletedCmsKey;
+
+      if (isDeleted === true){
+        this.onBlurEvent(e);
+      }
+
     }
 
     onBlurEvent(e){
@@ -51,6 +72,7 @@ export class CmsItemSelectBox extends ViewStream {
     onRendered() {
         this.addChannel("CHANNEL_SPYNE_JSON_CMS_DATA_UI");
         this.addChannel("CHANNEL_CMS_ITEMS");
+        this.addChannel("CHANNEL_DATA_PANELS");
     }
 
 }

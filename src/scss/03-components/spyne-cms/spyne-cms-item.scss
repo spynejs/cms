@@ -2,6 +2,13 @@ spyne-cms-item{
   position: relative;
   display: inline-block;
   display: inline-grid;
+
+  // marked by CmsItemTextUpdater when this item's panel row is deleted:
+  // the app only re-renders cms items on publish, so hiding stands in for
+  // the deletion until then
+  &.cms-item-deleted{
+    display: none;
+  }
  // position: relative;
   //display: inline-flex;;
 

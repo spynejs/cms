@@ -86,7 +86,19 @@ export class SpyneCmsPanelTraits extends SpyneTrait {
   static spyneCmsPanel$OnFocusElementEvent(e){
     const {rootId, cmsId} = e.payload;
     const sel = `dd[data-cms-id="${cmsId}"][data-cms-key=false]`;
-    const parentDD = this.props.el$(sel).el;
+
+    /**
+     * The app's cms items are only re-rendered on publish, so between
+     * deleting a container and publishing, hovering its rendered items sends
+     * a cmsId this panel no longer holds — an expected state, not an error.
+     * querySelector instead of el$ keeps the framework's missing-selector
+     * warning out of the console for this case.
+     * */
+    const parentDD = this.props.el.querySelector(sel);
+
+    if (parentDD === null){
+      return;
+    }
 
     let nestLevel = 0;
     const getClosestDl = el => {

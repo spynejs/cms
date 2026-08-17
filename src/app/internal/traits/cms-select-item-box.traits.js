@@ -69,6 +69,22 @@ export class CmsSelectItemBoxTraits extends SpyneTrait {
 
   }
 
+  static cmsSelectItem$GetItemsByCmsIds(cmsIdsArr = []){
+
+    const selector = cmsIdsArr.map(id => `spyne-cms-item[data-cms-id="${id}"]`).join(', ');
+
+    return selector === '' ? [] : Array.from(document.querySelectorAll(selector));
+
+  }
+
+  static cmsSelectItem$MarkItemsDeleted(itemsArr){
+
+    const forEachElement = (el)=>el.classList.add('cms-item-deleted');
+
+    return itemsArr.forEach(forEachElement);
+
+  }
+
   static cmsSelectItem$UpdateCmsItems(itemsArr, value){
 
     const forEachElement = (el)=>el.querySelector('spyne-cms-item-text').innerHTML = value;

@@ -6,7 +6,7 @@ import {SpyneCmsPanelDomUpdaterTraits} from '../../traits/spyne-cms-panel-dom-up
 //import 'material-symbols';
 const TemplateProperty = require('./templates/cms-data-panel-property.tmpl.html');
 const TemplatePropertyContainer = require('./templates/cms-data-panel-property-container.tmpl.html');
-import {clone} from 'ramda';
+import {clone, uniq} from 'ramda';
 import {CmsDataPanelProperyControlsOptions} from './cms-data-panel-propery-controls-options';
 
 export class CmsDataPanelProperty extends ViewStream {
@@ -430,7 +430,20 @@ export class CmsDataPanelProperty extends ViewStream {
       const activeElementId = this.props.id$;
       //const isTestEvent = true;
       const action = "CHANNEL_DATA_PANELS_ITEM_HAS_DELETED_PROPERTY";
-      const newPayload = {rootProxyId, testId, action, isTestEvent, dataEvent, activeElementId};
+
+      /**
+       * The deleted row's identity — and for containers, every cmsId in its
+       * subtree, collected here because after dispose the subtree is gone.
+       * App-side cms items use these to mark themselves deleted, since the
+       * app only re-renders items on publish.
+       * */
+      const deletedCmsId = this.props.data.dataCmsId;
+      const deletedCmsKey = this.props.data.dataCmsKey;
+      const deletedIsContainer = this.props.isContainer === true;
+      const descendantIdsArr = Array.from(this.props.el.querySelectorAll('dd[data-cms-id]')).map(dd => dd.dataset.cmsId);
+      const deletedCmsIdsArr = uniq([deletedCmsId, ...descendantIdsArr]);
+
+      const newPayload = {rootProxyId, testId, action, isTestEvent, dataEvent, activeElementId, deletedCmsId, deletedCmsKey, deletedIsContainer, deletedCmsIdsArr};
       newPayload.activeElementId =this.props.el.parentElement.closest('dd')?.id || this.props.el.parentElement.id;
       const channelName = "CHANNEL_DATA_PANELS";
       const sendDeleteEvent = ()=>{
@@ -453,7 +466,17 @@ export class CmsDataPanelProperty extends ViewStream {
        * */
 
       const {payload} = e;
-      this.props.el$('.cms-panel-input.type-property').el.focus({preventScroll: true});
+
+      /**
+       * A row orphaned by its container's delete stays subscribed until
+       * publish re-renders the app's cms items; its el is detached, so there
+       * is nothing to focus.
+       * */
+      if (this.props.el?.isConnected === false){
+        return;
+      }
+
+      this.props.el$('.cms-panel-input.type-property').el?.focus({preventScroll: true});
     }
 
     onInputUpdated(e){
