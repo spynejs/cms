@@ -60,7 +60,13 @@ class SpyneCmsPlugin extends SpynePlugin {
   constructor(props = {}) {
     props.name = SpynePluginCmsUITraits.spyneCms$GetPluginName();
     props.requiredEvents = ["click", "mouseover", "mouseenter", "keyup", "keydown"];
-    props.requiredCustomEvents = [SpyneCmsItem.connectedEventConfig]
+    /**
+     * OPTIONAL host enhancement (not required): declaring
+     * SpyneCmsItem.connectedEventConfig in config.channels.WINDOW.customEvents
+     * pre-materializes lazy panel sections per render burst and drives the
+     * tab spinner. Without it, lazy sections materialize on first hover via
+     * materializePathToCmsId — all core flows work either way.
+     */
     SpyneCmsPlugin.getEdetTest();
     super(props);
   }

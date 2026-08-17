@@ -51,6 +51,8 @@ const config = {
       listenForOrientation: true,
       debounceMSTimeForScroll: 50,
       events: ["click", "mouseover", "mouseenter", "keyup", "keydown"],
+      // OPTIONAL for the cms plugin: pre-materializes lazy panel sections
+      // and drives the tab spinner; core cms flows work without it
       customEvents: [{name: "spyne_cms_item_connected", buffer: 400}]
     },
 
