@@ -1,6 +1,6 @@
 {
   "name": "@spynejs/cms",
-  "version": "0.4.8",
+  "version": "0.4.9",
   "description": "CMS runtime plugin for structured JSON authoring inside SpyneJS applications",
   "main": "lib/spyne-cms-plugin.min.js",
   "module": "lib/spyne-cms-plugin.min.js",

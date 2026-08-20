@@ -46,10 +46,13 @@ export class AuthLocalTraits extends SpyneTrait {
 
     const isGatedBool = String(isGated) === 'true';
 
+    /**
+     * Gated controls (rich-text editing) no longer stop a signed-out user —
+     * the whole editing loop is open, and only publishing asks for an
+     * account. Their own handlers run off CHANNEL_UI either way.
+     * */
     if (isGatedBool === false){
       sendInternalEvent();
-    } else if (isAuthenticated === false || allowPremiumAccess === false){
-      this.authLocal$OnModalRequest();
     }
 
 
@@ -115,8 +118,8 @@ export class AuthLocalTraits extends SpyneTrait {
     const modalDataHash = {
 
       login: {
-        title : "Please Login",
-        desc : "Using the CMS requires logging in.",
+        title : "Sign in to save your changes",
+        desc : "Create a free account to publish your content.",
         btnType: "Login",
         btnURL: loginURL,
       },

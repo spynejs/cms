@@ -36,6 +36,28 @@ export class ChannelAuthLocal extends Channel {
     this.getChannel("CHANNEL_UI", uiAuthPayloadFilter).subscribe(
       this.authLocal$onUIEvent.bind(this),
     );
+
+    /**
+     * The publish button is the one gated action: signed-out users can edit
+     * everything, but saving needs an account, so the login modal opens here
+     * and nowhere else.
+     * */
+    const publishClickFilter = new ChannelPayloadFilter({
+      payload: (pl) => pl.uiType === 'cms-data-panel-submit',
+      action: "CHANNEL_UI_CLICK_EVENT"
+    });
+
+    this.getChannel("CHANNEL_UI", publishClickFilter).subscribe(
+      this.onPublishAttempted.bind(this),
+    );
+  }
+
+  onPublishAttempted(){
+    if (this.props.isAuthenticated === true){
+      return;
+    }
+
+    this.authLocal$OnModalRequest();
   }
 
   onToggleUpdate(e) {
@@ -61,7 +83,12 @@ export class ChannelAuthLocal extends Channel {
       // TEMPORARY PREMIUM
       this.props.isPremium = true;
       this.props.isAuthenticated = false;
-      this.authLocal$OnModalRequest();
+
+      /**
+       * Signed-out users edit freely — the CMS stays quiet about auth until
+       * they try to publish. The panel's signed-out notice tells them saving
+       * needs an account; the modal only appears on the publish attempt.
+       * */
     }
 
 

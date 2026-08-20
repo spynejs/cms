@@ -1,5 +1,5 @@
 import {Subject} from 'rxjs';
-import {Channel, ChannelPayloadFilter} from 'spyne';
+import {Channel, ChannelPayloadFilter, SpyneAppProperties} from 'spyne';
 import {SpyneCmsPanelDataTraits} from '../traits/spyne-cms-panel-data-traits';
 import {is, all,__, map, compose, uniq} from 'ramda';
 
@@ -46,6 +46,15 @@ export class ChannelSpyneJsonCmsDataUI extends Channel{
   }
 
   onDataPanelSubmitUpdates(e){
+
+    /**
+     * Saving is the one action that needs an account. ChannelAuthLocal opens
+     * the login modal on this same click; the edits stay in the panel, so
+     * closing the modal returns the user to exactly where they were.
+     * */
+    if (SpyneAppProperties.getProp('isAuthenticated') !== true){
+      return;
+    }
 
     // only panels whose serialization actually differs from their baseline
     const {changedPanelsMap} = this.props;

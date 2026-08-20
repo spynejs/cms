@@ -1,5 +1,6 @@
 import {ViewStream, DomElement, SpyneAppProperties} from 'spyne';
 import {CmsDataPanelPublishBtn} from './cms-data-panel-publish-btn';
+import {CmsDataPanelSignedOutNotice} from './cms-data-panel-signed-out-notice';
 const archiveBtnTmpl = require('./templates/cms-data-panel-backups-btn.tmpl.html');
 import { TinymceHolder } from "../tinymce/tinymce-holder";
 import {
@@ -81,6 +82,9 @@ export class CmsDataPanelUI extends ViewStream {
 
 
       this.props.el$('.ui-holder-bottom').el.appendChild(archiveBtn.render());
+
+      // sits after the actions — secondary to them, and only visible signed out
+      this.appendView(new CmsDataPanelSignedOutNotice(), '.ui-holder-bottom');
 
      // window.setTimeout(this.updateArchiveBtnPort.bind(this), 1000);
 
