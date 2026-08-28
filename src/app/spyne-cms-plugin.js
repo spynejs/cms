@@ -23,13 +23,11 @@ import {
   SpyneAppProperties,
   Channel,
   ChannelFetch,
-  ChannelFetchUtil,
 } from "spyne";
 
 // ─────────────────────────────────────────────────────────────
 // Traits
 // ─────────────────────────────────────────────────────────────
-import { AuthLocalTraits } from "./internal/traits/auth-local-traits";
 import { SpyneCmsProxyTraits } from "./internal/traits/spyne-cms-proxy-traits";
 import { SpynePluginCmsUITraits } from "./internal/traits/spyne-plugin-json-cms-ui-traits";
 
@@ -67,19 +65,7 @@ class SpyneCmsPlugin extends SpynePlugin {
      * tab spinner. Without it, lazy sections materialize on first hover via
      * materializePathToCmsId — all core flows work either way.
      */
-    SpyneCmsPlugin.getEdetTest();
     super(props);
-  }
-
-  static getEdetTest() {
-    const appDir = "/Users/frankbatista/sites/spyne-plugin-json-cms-tmp";
-    const cmsUrl = `http://localhost:52931/registry/lookup?dir=${appDir}`;
-
-    const onReturnEdet = (e) => {
-      AuthLocalTraits.authLocal$AddEdetMethod(e);
-    };
-
-    new ChannelFetchUtil({ url: cmsUrl }, onReturnEdet);
   }
 
   onBeforeRegistered() {
