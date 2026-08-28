@@ -100,7 +100,20 @@ export class ChannelAuthLocal extends Channel {
 
    //console.log('on reg ',e);
 
-    const { payload } = e;
+    let { payload } = e;
+
+    /**
+     * An unregistered app dir returns {error} with no user block — the
+     * first-run state before the adapter has registered the app. Conform it
+     * to a signed-out payload so the anon editing flow proceeds instead of
+     * crashing on the destructure below.
+     * */
+    if (payload?.user === undefined){
+      payload = Object.assign({}, payload, {
+        user: { isAuthenticated: false, role: 'anon' }
+      });
+    }
+
     const { user } = payload;
     const { isAuthenticated, role, edet } = user;
 

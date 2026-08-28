@@ -1,6 +1,7 @@
 import {ViewStream, DomElement, SpyneAppProperties} from 'spyne';
 import {CmsDataPanelPublishBtn} from './cms-data-panel-publish-btn';
 import {CmsDataPanelSignedOutNotice} from './cms-data-panel-signed-out-notice';
+import {CmsDataPanelRegistryNotice} from './cms-data-panel-registry-notice';
 const archiveBtnTmpl = require('./templates/cms-data-panel-backups-btn.tmpl.html');
 import { TinymceHolder } from "../tinymce/tinymce-holder";
 import {
@@ -61,8 +62,13 @@ export class CmsDataPanelUI extends ViewStream {
     updateArchiveBtnPort(e){
 
       const {payload} = e;
-      const {cms} = payload;
-      const {port} = cms;
+      const port = payload?.cms?.port;
+
+      // an unregistered app dir has no cms server entry — leave the backups
+      // link unset rather than pointing at localhost:undefined
+      if (port === undefined){
+        return;
+      }
 
      //console.log("ALL IS ",{cms, port, payload, e});
 
@@ -83,8 +89,10 @@ export class CmsDataPanelUI extends ViewStream {
 
       this.props.el$('.ui-holder-bottom').el.appendChild(archiveBtn.render());
 
-      // sits after the actions — secondary to them, and only visible signed out
+      // notices sit after the actions — secondary to them, each visible only
+      // in its own state (signed out / no cms server registered)
       this.appendView(new CmsDataPanelSignedOutNotice(), '.ui-holder-bottom');
+      this.appendView(new CmsDataPanelRegistryNotice(), '.ui-holder-bottom');
 
      // window.setTimeout(this.updateArchiveBtnPort.bind(this), 1000);
 

@@ -88,9 +88,9 @@
 
   }
 
-  // replaces the old blocking login modal: signed-out users edit freely and
-  // are told once, quietly, that saving needs an account
-  .cms-data-signed-out-notice{
+  // quiet state notices after the actions: signed-out (saving needs an
+  // account) and registry (no cms server entry — restart to re-register)
+  .cms-data-panel-notice{
     display: none;
     align-items: center;
     gap: .4rem;
