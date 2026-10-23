@@ -1,6 +1,6 @@
 {
   "name": "@spynejs/cms",
-  "version": "0.4.11",
+  "version": "0.4.12",
   "description": "CMS runtime plugin for structured JSON authoring inside SpyneJS applications",
   "main": "lib/spyne-cms-plugin.min.js",
   "module": "lib/spyne-cms-plugin.min.js",
@@ -71,5 +71,11 @@
   },
   "homepage": "https://spynejs.com",
   "author": "Frank Batista <frank@spynejs.com>",
-  "license": "GPL-3.0-or-later"
+  "license": "GPL-3.0-or-later",
+  "overrides": {
+    "postcss-selector-parser": "^7.1.7",
+    "sockjs": {
+      "uuid": "^11.1.1"
+    }
+  }
 }
